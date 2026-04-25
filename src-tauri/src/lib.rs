@@ -1,8 +1,13 @@
 mod backend;
 
 #[tauri::command]
-async fn generate_name(phrase: String, word_count: u8) -> Result<String, String> {
-    backend::naming::generate_name(&phrase, word_count).await
+async fn generate_name(
+    phrase: String,
+    word_count: u8,
+    previous: Option<Vec<String>>,
+) -> Result<String, String> {
+    let prev = previous.unwrap_or_default();
+    backend::naming::generate_name(&phrase, word_count, &prev).await
 }
 
 #[tauri::command]

@@ -1,5 +1,5 @@
 import styles from "./ResultDisplay.module.scss";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../store/store.ts";
 import { invoke } from "@tauri-apps/api/core";
@@ -25,6 +25,8 @@ const ResultDisplay = () => {
   const [retry, setRetry] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const lastKeyRef = useRef<string>("");
+
   const handleRetry = () => {
     if (errorOllama || loading) return;
     if (!result && !errorGenerate) return;
@@ -43,6 +45,12 @@ const ResultDisplay = () => {
 
   useEffect(() => {
     if (!phrase) return;
+
+    const key = `${phrase}:${wordCount}`;
+    const sameKey = lastKeyRef.current === key;
+    lastKeyRef.current = key;
+    const previous = sameKey && result ? [result] : [];
+
     (async () => {
       setLoading(true);
       setErrorGenerate(false);
@@ -57,6 +65,7 @@ const ResultDisplay = () => {
           const name = await invoke<string>("generate_name", {
             phrase,
             wordCount,
+            previous,
           });
           setResult(name);
         } catch (e) {

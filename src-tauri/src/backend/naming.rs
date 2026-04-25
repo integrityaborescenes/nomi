@@ -10,8 +10,12 @@ static PASCAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[A-Z][a-zA-Z]*$").unw
 static WORD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Z][a-z]*").unwrap());
 static EXTRACT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Z][A-Za-z]+").unwrap());
 
-fn build_prompt(phrase: &str, word_count: u8) -> String {
-    format!("Phrase: {phrase}\nWords: {word_count}")
+fn build_prompt(phrase: &str, word_count: u8, previous: &[String]) -> String {
+    let mut s = format!("Phrase: {phrase}\nWords: {word_count}");
+    if !previous.is_empty() {
+        s.push_str(&format!("\nAvoid (do not repeat): {}", previous.join(", ")));
+    }
+    s
 }
 
 fn extract_candidate(raw: &str) -> Option<String> {
@@ -34,7 +38,11 @@ fn count_words(identifier: &str) -> usize {
     WORD_RE.find_iter(identifier).count()
 }
 
-pub async fn generate_name(phrase: &str, word_count: u8) -> Result<String, String> {
+pub async fn generate_name(
+    phrase: &str,
+    word_count: u8,
+    previous: &[String],
+) -> Result<String, String> {
     if !(2..=5).contains(&word_count) {
         return Err("word_count must be between 2 and 5".into());
     }
@@ -43,16 +51,18 @@ pub async fn generate_name(phrase: &str, word_count: u8) -> Result<String, Strin
         return Err("phrase is empty".into());
     }
 
-    let prompt = build_prompt(phrase, word_count);
+    let prompt = build_prompt(phrase, word_count, previous);
     let mut last_raw = String::new();
 
     for attempt in 0..MAX_ATTEMPTS {
-        let temperature = (0.5 + (attempt as f32) * 0.15).min(1.0);
+        let temperature = (0.7 + (attempt as f32) * 0.1).min(1.1);
         let raw = ollama::generate(MODEL, &prompt, temperature).await?;
         last_raw = raw.clone();
 
         if let Some(candidate) = extract_candidate(&raw) {
-            if count_words(&candidate) == word_count as usize {
+            if count_words(&candidate) == word_count as usize
+                && !previous.iter().any(|p| p == &candidate)
+            {
                 return Ok(candidate);
             }
         }
