@@ -1,9 +1,12 @@
 import styles from "./WordCountSelector.module.scss";
 import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../store/store.ts";
+import { setCount } from "../../store/slices/parametersSlice.ts";
 
 const WordCountSelector = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const wordCounts = [2, 3, 4, 5];
-
   const [selectedId, setSelectedId] = useState(0);
 
   return (
@@ -20,7 +23,10 @@ const WordCountSelector = () => {
         <button
           key={c}
           className={selectedId === id ? styles.selected : ""}
-          onClick={() => setSelectedId(id)}
+          onClick={() => {
+            setSelectedId(id);
+            dispatch(setCount(c));
+          }}
         >
           {c}
         </button>

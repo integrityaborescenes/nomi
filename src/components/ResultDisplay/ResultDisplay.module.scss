@@ -20,6 +20,15 @@
     letter-spacing: -0.13px;
   }
 
+  .loader {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--color-purple);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: loaderSpin 0.7s linear infinite;
+  }
+
   .controls {
     display: flex;
     flex-direction: row;
@@ -62,5 +71,11 @@
   }
   to {
     transform: rotate(-360deg);
+  }
+}
+
+@keyframes loaderSpin {
+  to {
+    transform: rotate(360deg);
   }
 }

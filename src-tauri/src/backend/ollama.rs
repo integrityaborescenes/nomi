@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-const BASE_URL: &str = "http://localhost:11434";
+const BASE_URL: &str = "http://127.0.0.1:11434";
 const TIMEOUT_SECS: u64 = 60;
 
 static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
