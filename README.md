@@ -1,7 +1,17 @@
-# Tauri + React + Typescript
+<h1 align="center">nomi</h1>
+<p align="center">
+  Генератор PascalCase-имён для компонентов из любой фразы. За основу взята локальная LLM через ollama.
+</p>
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+## Использование
+1. Введи фразу.
+2. Выбери количество слов (2 / 3 / 4).
+3. Submit.
+4. ↻ — перегенерировать, ⧉ — скопировать.
 
-## Recommended IDE Setup
-
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## Пример работы
+```
+"Шапка пользовательской панели" (3) → UserDashboardHeader
+"Кнопка отправки формы" (2)         → SubmitButton
+"User profile card with avatar" (4) → UserProfileCardAvatar
+```
