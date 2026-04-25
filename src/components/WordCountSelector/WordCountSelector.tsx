@@ -6,7 +6,7 @@ import { setCount } from "../../store/slices/parametersSlice.ts";
 
 const WordCountSelector = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const wordCounts = [2, 3, 4, 5];
+  const wordCounts = [2, 3, 4];
   const [selectedId, setSelectedId] = useState(0);
 
   return (

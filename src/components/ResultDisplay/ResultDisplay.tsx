@@ -87,7 +87,7 @@ const ResultDisplay = () => {
           {errorOllama
             ? "Ошибка ollama"
             : errorGenerate
-              ? "Не удалось — попробуй ещё"
+              ? "Не получилось :( попробуй ещё раз"
               : result}
         </p>
       )}
