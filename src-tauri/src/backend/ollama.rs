@@ -71,3 +71,32 @@ pub async fn ping() -> bool {
         .map(|r| r.status().is_success())
         .unwrap_or(false)
 }
+
+#[derive(Deserialize)]
+struct TagsResponse {
+    models: Vec<TagModel>,
+}
+
+#[derive(Deserialize)]
+struct TagModel {
+    name: String,
+}
+
+pub async fn list_models() -> Result<Vec<String>, String> {
+    let resp = CLIENT
+        .get(format!("{BASE_URL}/api/tags"))
+        .send()
+        .await
+        .map_err(|e| format!("ollama tags request failed: {e}"))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("ollama returned status {}", resp.status()));
+    }
+
+    let parsed: TagsResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("failed to parse ollama tags: {e}"))?;
+
+    Ok(parsed.models.into_iter().map(|m| m.name).collect())
+}
