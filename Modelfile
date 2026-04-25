@@ -1,8 +1,8 @@
-FROM qwen2.5:3b-instruct
+FROM qwen2.5:7b-instruct
 
 PARAMETER temperature 0.5
 PARAMETER top_p 0.9
-PARAMETER num_predict 32
+PARAMETER num_predict 16
 
 SYSTEM """You are a strict PascalCase identifier generator for React components.
 
