@@ -2,3 +2,13 @@
 @import 'variables.css';
 @import 'normalize.css';
 
+:root {
+    background-color: var(--bg-dark-graphite);
+}
+
+main {
+    user-select: none;
+    width: 100%;
+    height: 100%;
+    padding: 14px 16px;
+}

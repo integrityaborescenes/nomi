@@ -1,9 +1,9 @@
-import "./App.css";
+import PhraseInput from "./components/PhraseInput/PhraseInput.tsx";
 
 function App() {
   return (
-    <main className="container">
-      <h1>nomi</h1>
+    <main>
+      <PhraseInput />
     </main>
   );
 }
