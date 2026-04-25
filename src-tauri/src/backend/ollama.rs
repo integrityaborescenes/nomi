@@ -40,7 +40,7 @@ pub async fn generate(model: &str, prompt: &str, temperature: f32) -> Result<Str
         options: GenerateOptions {
             temperature,
             top_p: 0.9,
-            num_predict: 32,
+            num_predict: 16,
         },
     };
 

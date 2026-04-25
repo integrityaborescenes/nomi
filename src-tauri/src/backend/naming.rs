@@ -4,7 +4,7 @@ use regex::Regex;
 use super::ollama;
 
 const MODEL: &str = "nomi-namer";
-const MAX_ATTEMPTS: u8 = 5;
+const MAX_ATTEMPTS: u8 = 3;
 
 static PASCAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[A-Z][a-zA-Z]*$").unwrap());
 static WORD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Z][a-z]*").unwrap());
@@ -38,13 +38,21 @@ fn count_words(identifier: &str) -> usize {
     WORD_RE.find_iter(identifier).count()
 }
 
+fn trim_to_word_count(identifier: &str, word_count: usize) -> Option<String> {
+    let words: Vec<&str> = WORD_RE.find_iter(identifier).map(|m| m.as_str()).collect();
+    if words.len() < word_count {
+        return None;
+    }
+    Some(words[..word_count].concat())
+}
+
 pub async fn generate_name(
     phrase: &str,
     word_count: u8,
     previous: &[String],
 ) -> Result<String, String> {
-    if !(2..=5).contains(&word_count) {
-        return Err("word_count must be between 2 and 5".into());
+    if !(2..=4).contains(&word_count) {
+        return Err("word_count must be between 2 and 4".into());
     }
     let phrase = phrase.trim();
     if phrase.is_empty() {
@@ -53,19 +61,33 @@ pub async fn generate_name(
 
     let prompt = build_prompt(phrase, word_count, previous);
     let mut last_raw = String::new();
+    let mut overflow_fallback: Option<String> = None;
 
     for attempt in 0..MAX_ATTEMPTS {
         let temperature = (0.7 + (attempt as f32) * 0.1).min(1.1);
         let raw = ollama::generate(MODEL, &prompt, temperature).await?;
         last_raw = raw.clone();
 
-        if let Some(candidate) = extract_candidate(&raw) {
-            if count_words(&candidate) == word_count as usize
-                && !previous.iter().any(|p| p == &candidate)
-            {
-                return Ok(candidate);
+        let Some(candidate) = extract_candidate(&raw) else {
+            continue;
+        };
+        let n = count_words(&candidate);
+
+        if n == word_count as usize && !previous.iter().any(|p| p == &candidate) {
+            return Ok(candidate);
+        }
+
+        if n > word_count as usize {
+            if let Some(trimmed) = trim_to_word_count(&candidate, word_count as usize) {
+                if !previous.iter().any(|p| p == &trimmed) && overflow_fallback.is_none() {
+                    overflow_fallback = Some(trimmed);
+                }
             }
         }
+    }
+
+    if let Some(fallback) = overflow_fallback {
+        return Ok(fallback);
     }
 
     Err(format!(
@@ -98,5 +120,12 @@ mod tests {
         assert_eq!(count_words("ApplyPhotoFilters"), 3);
         assert_eq!(count_words("Apply"), 1);
         assert_eq!(count_words("ApplyPhotoStripFilters"), 4);
+    }
+
+    #[test]
+    fn trims_overflow_correctly() {
+        assert_eq!(trim_to_word_count("PrintPhoneSection", 2), Some("PrintPhone".into()));
+        assert_eq!(trim_to_word_count("ApplyPhotoStripFilters", 3), Some("ApplyPhotoStrip".into()));
+        assert_eq!(trim_to_word_count("Apply", 2), None);
     }
 }
