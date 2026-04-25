@@ -1,0 +1,66 @@
+.resultDisplay {
+  display: flex;
+  flex-direction: row;
+  width: auto;
+  height: 37.0px;
+  padding-top: 11px;
+  justify-content: space-between;
+  align-items: center;
+  align-self: stretch;
+  border-top: 1px solid var(--bg-light-graphite);
+  margin-top: auto;
+
+  p {
+    color: var(--color-purple);
+    font-family: var(--font-jet-brains-mono);
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 19.5px;
+    letter-spacing: -0.13px;
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+
+    .retry,
+    .copy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 26.0px;
+      width: 100%;
+      height: 26.0px;
+      border: 0;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+      color: var(--color-white);
+
+      img,
+      svg {
+        width: 13px;
+        height: 13px;
+      }
+    }
+
+    .retry {
+      &.spinning img {
+        animation: spin 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
