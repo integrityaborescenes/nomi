@@ -3,37 +3,15 @@ use regex::Regex;
 
 use super::ollama;
 
-const MODEL: &str = "qwen2.5:3b-instruct";
-const MAX_ATTEMPTS: u8 = 3;
+const MODEL: &str = "nomi-namer";
+const MAX_ATTEMPTS: u8 = 5;
 
 static PASCAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[A-Z][a-zA-Z]*$").unwrap());
 static WORD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Z][a-z]*").unwrap());
 static EXTRACT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Z][A-Za-z]+").unwrap());
 
 fn build_prompt(phrase: &str, word_count: u8) -> String {
-    let example = match word_count {
-        2 => "ApplyFilters",
-        3 => "ApplyPhotoFilters",
-        4 => "ApplyPhotoStripFilters",
-        _ => "ApplyPhotoFilters",
-    };
-
-    format!(
-        "You translate phrases (often Russian) into a single PascalCase identifier suitable for a React component name.\n\
-        \n\
-        STRICT RULES:\n\
-        - Output ONLY the identifier. No quotes, no markdown, no explanation, no extra words.\n\
-        - The identifier MUST contain EXACTLY {word_count} English words concatenated in PascalCase.\n\
-        - Each word: first letter uppercase, rest lowercase. ASCII letters only.\n\
-        - Do not append suffixes like \"Component\", \"Page\", \"Button\" unless the phrase mentions them.\n\
-        - Choose words that best capture the meaning of the phrase.\n\
-        \n\
-        Example for {word_count} words: {example}\n\
-        \n\
-        Phrase: {phrase}\n\
-        \n\
-        Identifier:"
-    )
+    format!("Phrase: {phrase}\nWords: {word_count}")
 }
 
 fn extract_candidate(raw: &str) -> Option<String> {
@@ -57,8 +35,8 @@ fn count_words(identifier: &str) -> usize {
 }
 
 pub async fn generate_name(phrase: &str, word_count: u8) -> Result<String, String> {
-    if !(2..=4).contains(&word_count) {
-        return Err("word_count must be 2, 3, or 4".into());
+    if !(2..=5).contains(&word_count) {
+        return Err("word_count must be between 2 and 5".into());
     }
     let phrase = phrase.trim();
     if phrase.is_empty() {
@@ -69,7 +47,7 @@ pub async fn generate_name(phrase: &str, word_count: u8) -> Result<String, Strin
     let mut last_raw = String::new();
 
     for attempt in 0..MAX_ATTEMPTS {
-        let temperature = 0.6 + (attempt as f32) * 0.2;
+        let temperature = (0.5 + (attempt as f32) * 0.15).min(1.0);
         let raw = ollama::generate(MODEL, &prompt, temperature).await?;
         last_raw = raw.clone();
 
