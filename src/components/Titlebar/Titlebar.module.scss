@@ -1,0 +1,53 @@
+.titlebar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 32px;
+  background: var(--bg-dark-graphite);
+  border-bottom: 1px solid var(--bg-light-graphite);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.title {
+  padding-left: 12px;
+  color: var(--color-gray);
+  font-family: var(--font-jet-brains-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
+.controls {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+}
+
+.minimize,
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--color-gray);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  padding: 0;
+}
+
+.minimize:hover {
+  background: var(--bg-light-graphite);
+  color: var(--color-white);
+}
+
+.close:hover {
+  background: #C42B1C;
+  color: var(--color-white);
+}

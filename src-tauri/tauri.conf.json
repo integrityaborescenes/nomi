@@ -14,8 +14,9 @@
       {
         "title": "nomi",
         "width": 500,
-        "height": 200,
-        "resizable": false
+        "height": 232,
+        "resizable": false,
+        "decorations": false
       }
     ],
     "security": {
