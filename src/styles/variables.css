@@ -1,0 +1,16 @@
+:root {
+    /*colors*/
+    --color-white: #F3F4F6;
+    --color-gray: #6B7280;
+    --color-purple: #A78BFA;
+
+    /*background colors*/
+    --bg-dark-purple: rgba(167, 139, 250, 0.10);
+    --bg-dark-graphite: #0D0D0D;
+    --bg-light-graphite: #1A1A1A;
+    --bg-light-gray: #252525;
+
+    /*fonts*/
+    --font-inter: "Inter", sans-serif;
+    --font-jet-brains-mono: JetBrains Mono", sans-serif;
+}
