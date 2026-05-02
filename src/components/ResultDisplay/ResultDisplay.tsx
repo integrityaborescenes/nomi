@@ -20,7 +20,6 @@ const ResultDisplay = () => {
   const [result, setResult] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [errorOllama, setErrorOllama] = useState<boolean>(false);
   const [errorGenerate, setErrorGenerate] = useState<boolean>(false);
   const [retry, setRetry] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -28,7 +27,7 @@ const ResultDisplay = () => {
   const lastKeyRef = useRef<string>("");
 
   const handleRetry = () => {
-    if (errorOllama || loading) return;
+    if (loading) return;
     if (!result && !errorGenerate) return;
 
     setSpinning(true);
@@ -36,7 +35,7 @@ const ResultDisplay = () => {
   };
 
   const handleCopy = async () => {
-    if (errorOllama || !result) return;
+    if (!result) return;
 
     await navigator.clipboard.writeText(result);
     setCopied(true);
@@ -55,23 +54,15 @@ const ResultDisplay = () => {
       setLoading(true);
       setErrorGenerate(false);
       try {
-        const ollamaStatus = await invoke<boolean>("check_ollama");
-        if (!ollamaStatus) {
-          setErrorOllama(true);
-          return;
-        }
-        setErrorOllama(false);
-        try {
-          const name = await invoke<string>("generate_name", {
-            phrase,
-            wordCount,
-            previous,
-          });
-          setResult(name);
-        } catch (e) {
-          console.error("generate_name failed:", e);
-          setErrorGenerate(true);
-        }
+        const name = await invoke<string>("generate_name", {
+          phrase,
+          wordCount,
+          previous,
+        });
+        setResult(name);
+      } catch (e) {
+        console.error("generate_name failed:", e);
+        setErrorGenerate(true);
       } finally {
         setLoading(false);
       }
@@ -84,11 +75,7 @@ const ResultDisplay = () => {
         <span className={styles.loader} />
       ) : (
         <p>
-          {errorOllama
-            ? "Ошибка ollama"
-            : errorGenerate
-              ? "Не получилось :( попробуй ещё раз"
-              : result}
+          {errorGenerate ? "Не получилось :( попробуй ещё раз" : result}
         </p>
       )}
       <div className={styles.controls}>
