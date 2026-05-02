@@ -1,0 +1,16 @@
+{
+  "vocab_size": 4096,
+  "d_model": 256,
+  "n_layers": 8,
+  "n_heads": 4,
+  "max_seq": 25,
+  "pad_id": 0,
+  "bos_id": 2,
+  "eos_id": 3,
+  "sep_id": 4,
+  "wc_ids": {
+    "2": 5,
+    "3": 6,
+    "4": 7
+  }
+}
