@@ -20,6 +20,7 @@ training/
 
 # Локальные настройки Claude Code
 .claude/
+CLAUDE.md
 
 # Editor directories and files
 .vscode/*
