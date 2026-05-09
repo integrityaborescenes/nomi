@@ -18,7 +18,7 @@ const CONFIG_BYTES: &[u8] = include_bytes!("../../resources/config.json");
 const TOKENIZER_SRC_BYTES: &[u8] = include_bytes!("../../resources/tokenizer-source.json");
 const TOKENIZER_TGT_BYTES: &[u8] = include_bytes!("../../resources/tokenizer-target.json");
 
-const MAX_ATTEMPTS: usize = 5;
+const MAX_ATTEMPTS: usize = 10;
 
 #[derive(Debug, Deserialize)]
 struct AppConfig {
@@ -34,6 +34,9 @@ struct Engine {
     tgt_tokenizer: Tokenizer,
     config: AppConfig,
     device: Device,
+    /// Кэш encoder-output для последней пары (src_ids, tensor) — между retry-попытками
+    /// для одной и той же фразы encoder бежит 1 раз, не N. ~30-40% speedup на retry.
+    cached_encoder: Option<(Vec<u32>, Tensor)>,
 }
 
 impl Engine {
@@ -58,10 +61,17 @@ impl Engine {
             tgt_tokenizer,
             config,
             device,
+            cached_encoder: None,
         })
     }
 
-    /// Один прогон генерации: encode source → decode loop с применёнными constraints.
+    /// ID токена `▁<word>` в target-vocab — для блокировки повтора слов.
+    fn target_word_token_id(&self, word: &str) -> Option<u32> {
+        let with_marker = format!("\u{2581}{word}");
+        self.tgt_tokenizer.token_to_id(&with_marker)
+    }
+
+    /// Один прогон генерации: encode source (с кэшем) → decode loop с применёнными constraints.
     fn generate_once(
         &mut self,
         phrase: &str,
@@ -84,31 +94,39 @@ impl Engine {
         src_ids.extend_from_slice(encoded.get_ids());
         src_ids.push(cfg.marian.eos_token_id);
 
-        let src_tensor = Tensor::new(src_ids.as_slice(), &self.device)
-            .map_err(|e| format!("src tensor: {e}"))?
-            .unsqueeze(0)
-            .map_err(|e| format!("unsqueeze: {e}"))?;
-
-        // Сбрасываем kv-cache между генерациями.
+        // Сбрасываем kv-cache decoder'а — НЕ encoder'а (encoder stateless для одного forward).
         self.model.reset_kv_cache();
 
-        // Encoder forward (один раз).
-        let encoder_out = self
-            .model
-            .encoder()
-            .forward(&src_tensor, 0)
-            .map_err(|e| format!("encoder: {e}"))?;
+        // Encoder forward — переиспользуем cached если src_ids совпадают (retry на ту же фразу).
+        let encoder_out = match &self.cached_encoder {
+            Some((cached_ids, cached_out)) if cached_ids == &src_ids => cached_out.clone(),
+            _ => {
+                let src_tensor = Tensor::new(src_ids.as_slice(), &self.device)
+                    .map_err(|e| format!("src tensor: {e}"))?
+                    .unsqueeze(0)
+                    .map_err(|e| format!("unsqueeze: {e}"))?;
+                let out = self
+                    .model
+                    .encoder()
+                    .forward(&src_tensor, 0)
+                    .map_err(|e| format!("encoder: {e}"))?;
+                self.cached_encoder = Some((src_ids.clone(), out.clone()));
+                out
+            }
+        };
 
-        // Подготовим constraints — IDs spec-токенов и uppercase-word-piece IDs.
+        // Подготовим constraints — IDs spec-токенов.
         let eos_id = cfg.marian.eos_token_id;
         let pad_id = cfg.marian.pad_token_id;
         let start_id = cfg.marian.decoder_start_token_id;
 
-        // Слова — первое слово предыдущих результатов (для разнообразия).
+        // На первом шаге блокируем ▁<first_word> предыдущих результатов —
+        // для разнообразия при retry. Marian слишком уверена в одном ответе,
+        // без этого retry даёт то же самое и MAX_ATTEMPTS зря крутится.
         let mut blocked_first_words: Vec<u32> = Vec::new();
         for prev in previous {
             if let Some(first) = WORD_RE.find(prev) {
-                if let Some(tid) = self.word_token_id(first.as_str()) {
+                if let Some(tid) = self.target_word_token_id(first.as_str()) {
                     blocked_first_words.push(tid);
                 }
             }
@@ -131,6 +149,11 @@ impl Engine {
         let mut current_input: Vec<u32> = vec![start_id];
         let mut past_kv_len: usize = 0;
 
+        // Инкрементальные счётчики (без `tokenizer.decode` в loop):
+        // в SentencePiece каждый токен начинающийся с '▁' (\u{2581}) — начало слова.
+        let mut n_words: usize = 0;
+        let mut used_word_token_ids: Vec<u32> = Vec::new();
+
         for step in 0..cfg.max_decode_len {
             let dec_input = Tensor::new(current_input.as_slice(), &self.device)
                 .map_err(|e| format!("dec tensor: {e}"))?
@@ -149,21 +172,6 @@ impl Engine {
                 .to_dtype(DType::F32)
                 .map_err(|e| format!("to_dtype: {e}"))?;
 
-            // Текущее накопленное имя для constraints (decode через target).
-            let accumulated_text = if output_ids.is_empty() {
-                String::new()
-            } else {
-                self.tgt_tokenizer
-                    .decode(&output_ids, true)
-                    .map_err(|e| format!("decode: {e}"))?
-            };
-            let n_words = count_words(&accumulated_text);
-            let used_words: Vec<u32> = WORD_RE
-                .find_iter(&accumulated_text)
-                .filter_map(|m| self.word_token_id(m.as_str()))
-                .collect();
-            let block_first_step = step == 0;
-
             let next = sampler
                 .sample_f(&last_logits, |prs| {
                     // 1. Блокируем pad всегда.
@@ -174,14 +182,14 @@ impl Engine {
                     if n_words < word_count as usize && (eos_id as usize) < prs.len() {
                         prs[eos_id as usize] = 0.0;
                     }
-                    // 3. Блокируем уже использованные слова.
-                    for &tid in &used_words {
+                    // 3. Блокируем уже использованные слова (▁-токены).
+                    for &tid in &used_word_token_ids {
                         if (tid as usize) < prs.len() {
                             prs[tid as usize] = 0.0;
                         }
                     }
-                    // 4. На первом шаге блокируем первое слово предыдущих результатов.
-                    if block_first_step {
+                    // 4. На первом шаге блокируем первое слово previous-результата.
+                    if step == 0 {
                         for &tid in &blocked_first_words {
                             if (tid as usize) < prs.len() {
                                 prs[tid as usize] = 0.0;
@@ -195,6 +203,15 @@ impl Engine {
                 break;
             }
             output_ids.push(next);
+
+            // Если новый токен начинается с ▁ — это начало слова: счётчик++,
+            // запоминаем для блокировки повтора. id_to_token() это O(1) lookup.
+            if let Some(tok) = self.tgt_tokenizer.id_to_token(next) {
+                if tok.starts_with('\u{2581}') {
+                    n_words += 1;
+                    used_word_token_ids.push(next);
+                }
+            }
 
             // Двигаем кэш: следующий шаг подаст только [next], past_kv_len растёт.
             past_kv_len += current_input.len();
@@ -214,16 +231,6 @@ impl Engine {
         Ok(to_pascal_case(&raw))
     }
 
-    /// Получить ID токена представляющего отдельное слово (uppercase) — для constraint-логики.
-    /// В opus-mt SPM-токены либо начинаются с ▁ (новое слово), либо являются продолжением.
-    /// Для блокировки повторов нам нужен ID токена «▁Word».
-    fn word_token_id(&self, word: &str) -> Option<u32> {
-        // Слова — английские, ищем через target tokenizer.
-        let with_marker = format!("\u{2581}{word}");
-        self.tgt_tokenizer
-            .token_to_id(&with_marker)
-            .or_else(|| self.tgt_tokenizer.token_to_id(word))
-    }
 }
 
 static ENGINE: Lazy<Mutex<Engine>> =
@@ -263,6 +270,12 @@ fn to_pascal_case(text: &str) -> String {
         .collect()
 }
 
+/// Прогревает модель — форсит lazy load в фоне.
+/// Вызывать на старте app, чтобы первая генерация не ждала загрузки 145MB в RAM.
+pub fn warmup() {
+    drop(ENGINE.lock());
+}
+
 pub fn generate_name(
     phrase: &str,
     word_count: u8,
@@ -280,7 +293,8 @@ pub fn generate_name(
 
     let mut last = String::new();
     for attempt in 0..MAX_ATTEMPTS {
-        let temperature = 0.7 + 0.15 * attempt as f32;
+        // Ramp 0.7 → 1.42, capped на 1.5 (выше — random, низкое качество).
+        let temperature = (0.7 + 0.08 * attempt as f32).min(1.5);
         let name = engine.generate_once(phrase, word_count as u32, temperature, previous)?;
         last = name.clone();
         if is_valid(&name, word_count as usize) && !previous.iter().any(|p| p == &name) {

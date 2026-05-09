@@ -18,6 +18,12 @@ async fn generate_name(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|_app| {
+            // Прогрев модели в фоне — пока юзер набирает фразу,
+            // 145MB веса уже грузятся в RAM. Первая генерация моментальная.
+            std::thread::spawn(|| backend::inference::warmup());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![generate_name])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
