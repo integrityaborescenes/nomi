@@ -31,3 +31,9 @@ training/
 *.njsproj
 *.sln
 *.sw?
+/CLAUDE.md
+
+# Модель Marian (~145MB) — превышает GitHub лимит 100MB.
+# Хранится локально, бандлится в exe через include_bytes!,
+# распространяется отдельно как release asset.
+src-tauri/resources/model.safetensors
