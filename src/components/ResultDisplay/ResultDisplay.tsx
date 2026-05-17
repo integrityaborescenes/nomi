@@ -8,6 +8,7 @@ type NameResult = {
   pascal: string;
   camel: string;
   kebab: string;
+  snake: string;
 };
 
 const ResultDisplay = () => {

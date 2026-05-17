@@ -8,6 +8,7 @@ const options: { id: NameStyle; label: string }[] = [
   { id: "pascal", label: "Pascal" },
   { id: "camel", label: "camel" },
   { id: "kebab", label: "kebab" },
+  { id: "snake", label: "snake" },
 ];
 
 const StyleSelector = () => {

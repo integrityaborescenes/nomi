@@ -37,6 +37,7 @@ pub struct NameResult {
     pub pascal: String,
     pub camel: String,
     pub kebab: String,
+    pub snake: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -304,12 +305,12 @@ fn pascal_to_camel(pascal: &str) -> String {
     }
 }
 
-/// «ProductCard» → «product-card». Слова в PascalCase разделены сменой регистра.
-fn pascal_to_kebab(pascal: &str) -> String {
+/// «ProductCard» → «product-case-sep». `sep`='-' для kebab, '_' для snake.
+fn pascal_with_sep(pascal: &str, sep: char) -> String {
     let mut out = String::new();
     for (i, ch) in pascal.chars().enumerate() {
         if ch.is_uppercase() && i > 0 {
-            out.push('-');
+            out.push(sep);
         }
         for lc in ch.to_lowercase() {
             out.push(lc);
@@ -356,7 +357,8 @@ pub fn generate_name(phrase: &str, previous: &[String]) -> Result<NameResult, St
 
     Ok(NameResult {
         camel: pascal_to_camel(&pascal),
-        kebab: pascal_to_kebab(&pascal),
+        kebab: pascal_with_sep(&pascal, '-'),
+        snake: pascal_with_sep(&pascal, '_'),
         pascal,
     })
 }

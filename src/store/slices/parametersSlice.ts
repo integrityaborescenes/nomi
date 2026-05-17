@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-export type NameStyle = "pascal" | "camel" | "kebab";
+export type NameStyle = "pascal" | "camel" | "kebab" | "snake";
 
 type ParametersState = {
   style: NameStyle;
