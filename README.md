@@ -1,17 +1,17 @@
 <h1 align="center">nomi</h1>
 <p align="center">
-  Генератор PascalCase-имён для компонентов из любой фразы.
+  Генератор имён из любой фразы.
 </p>
 
 ## Использование
 1. Введи фразу.
-2. Выбери количество слов (2 / 3 / 4).
-3. Submit.
+2. Submit или Enter.
+3. Выбери стиль вывода: Pascal / camel / kebab.
 4. ↻ — перегенерировать, ⧉ — скопировать.
 
 ## Пример работы
 ```
-"Шапка пользовательской панели" (3) → UserDashboardHeader
-"Кнопка отправки формы" (2)         → SubmitButton
-"User profile card with avatar" (4) → UserProfileCardAvatar
+"Шапка пользовательской панели" → UserDashboardHeader
+"Кнопка отправки формы"         → SubmitButton
+"User profile card with avatar" → UserProfileCardAvatar
 ```
