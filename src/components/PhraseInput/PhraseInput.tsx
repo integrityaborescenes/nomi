@@ -29,7 +29,7 @@ const PhraseInput = () => {
     <div className={styles.phaseInput}>
       <input
         type={"text"}
-        placeholder={"Describe a component…"}
+        placeholder={"Type a phrase…"}
         value={inputValue}
         onChange={handleInput}
         onKeyDown={handleKeyDown}
