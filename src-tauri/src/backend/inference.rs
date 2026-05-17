@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use candle_core::{DType, Device, IndexOp, Tensor};
@@ -8,7 +9,7 @@ use candle_transformers::models::marian::{Config as MarianConfig, MTModel};
 use once_cell::sync::Lazy;
 use rand::Rng;
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokenizers::Tokenizer;
 
 const MODEL_BYTES: &[u8] = include_bytes!("../../resources/model.safetensors");
@@ -18,7 +19,25 @@ const CONFIG_BYTES: &[u8] = include_bytes!("../../resources/config.json");
 const TOKENIZER_SRC_BYTES: &[u8] = include_bytes!("../../resources/tokenizer-source.json");
 const TOKENIZER_TGT_BYTES: &[u8] = include_bytes!("../../resources/tokenizer-target.json");
 
-const MAX_ATTEMPTS: usize = 10;
+const MAX_ATTEMPTS: usize = 5;
+
+/// Подбор wc по длине входной фразы. Модель умеет 2/3/4 — больше не тренировалась.
+/// Короткие фразы → короткие имена (быстро + по делу); длинные → больше слов в имени.
+fn pick_word_count(phrase: &str) -> u8 {
+    let n = phrase.split_whitespace().count();
+    match n {
+        0..=2 => 2,
+        3..=4 => 3,
+        _ => 4,
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct NameResult {
+    pub pascal: String,
+    pub camel: String,
+    pub kebab: String,
+}
 
 #[derive(Debug, Deserialize)]
 struct AppConfig {
@@ -202,25 +221,25 @@ impl Engine {
             if next == eos_id {
                 break;
             }
-            output_ids.push(next);
 
-            // Если новый токен начинается с ▁ — это начало слова: счётчик++,
-            // запоминаем для блокировки повтора. id_to_token() это O(1) lookup.
+            // Если новый токен — начало слова (▁): счётчик++, no-repeat блок.
+            // Если это уже (wc+1)-е слово — рвём loop, не пушим: модель не закончила
+            // на EOS, а полезла дальше, эмитя лишнее слово (без этого break валидация
+            // получала wc+1 слов и отшивала всю генерацию).
             if let Some(tok) = self.tgt_tokenizer.id_to_token(next) {
                 if tok.starts_with('\u{2581}') {
+                    if n_words >= word_count as usize {
+                        break;
+                    }
                     n_words += 1;
                     used_word_token_ids.push(next);
                 }
             }
+            output_ids.push(next);
 
             // Двигаем кэш: следующий шаг подаст только [next], past_kv_len растёт.
             past_kv_len += current_input.len();
             current_input = vec![next];
-
-            // Не прерываемся на достижении word_count — иначе можем отрезать
-            // суффикс слова (Footer → "F" + "oot" + "er", break после "F" даст "SiteF").
-            // Полагаемся на natural EOS: как только n_words ≥ word_count, EOS
-            // разблокируется и модель его эмитит сама когда закончит.
         }
 
         // Финальный декод и приведение к PascalCase (decode через target).
@@ -235,6 +254,12 @@ impl Engine {
 
 static ENGINE: Lazy<Mutex<Engine>> =
     Lazy::new(|| Mutex::new(Engine::load().expect("load marian engine")));
+
+static WARMED_UP: AtomicBool = AtomicBool::new(false);
+
+pub fn is_warmed_up() -> bool {
+    WARMED_UP.load(Ordering::Relaxed)
+}
 
 static WORD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Za-z][a-z0-9]*").unwrap());
 static PASCAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([A-Z][a-z0-9]*)+$").unwrap());
@@ -270,42 +295,68 @@ fn to_pascal_case(text: &str) -> String {
         .collect()
 }
 
+/// «ProductCard» → «productCard»
+fn pascal_to_camel(pascal: &str) -> String {
+    let mut chars = pascal.chars();
+    match chars.next() {
+        Some(c) => c.to_lowercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+/// «ProductCard» → «product-card». Слова в PascalCase разделены сменой регистра.
+fn pascal_to_kebab(pascal: &str) -> String {
+    let mut out = String::new();
+    for (i, ch) in pascal.chars().enumerate() {
+        if ch.is_uppercase() && i > 0 {
+            out.push('-');
+        }
+        for lc in ch.to_lowercase() {
+            out.push(lc);
+        }
+    }
+    out
+}
+
 /// Прогревает модель — форсит lazy load в фоне.
 /// Вызывать на старте app, чтобы первая генерация не ждала загрузки 145MB в RAM.
 pub fn warmup() {
     drop(ENGINE.lock());
+    WARMED_UP.store(true, Ordering::Relaxed);
 }
 
-pub fn generate_name(
-    phrase: &str,
-    word_count: u8,
-    previous: &[String],
-) -> Result<String, String> {
-    if !(2..=4).contains(&word_count) {
-        return Err("word_count must be between 2 and 4".into());
-    }
+pub fn generate_name(phrase: &str, previous: &[String]) -> Result<NameResult, String> {
     let phrase = phrase.trim();
     if phrase.is_empty() {
         return Err("phrase is empty".into());
     }
+    let wc = pick_word_count(phrase);
 
     let mut engine = ENGINE.lock().map_err(|e| format!("lock: {e}"))?;
 
     let mut last = String::new();
-    for attempt in 0..MAX_ATTEMPTS {
-        // Ramp 0.7 → 1.42, capped на 1.5 (выше — random, низкое качество).
-        let temperature = (0.7 + 0.08 * attempt as f32).min(1.5);
-        let name = engine.generate_once(phrase, word_count as u32, temperature, previous)?;
-        last = name.clone();
-        if is_valid(&name, word_count as usize) && !previous.iter().any(|p| p == &name) {
-            return Ok(name);
+    let pascal = 'outer: {
+        for attempt in 0..MAX_ATTEMPTS {
+            // Ramp 0.7 → 1.42, capped на 1.5 (выше — random, низкое качество).
+            let temperature = (0.7 + 0.08 * attempt as f32).min(1.5);
+            let name = engine.generate_once(phrase, wc as u32, temperature, previous)?;
+            last = name.clone();
+            if is_valid(&name, wc as usize) && !previous.iter().any(|p| p == &name) {
+                break 'outer name;
+            }
         }
-    }
-    if is_valid(&last, word_count as usize) {
-        Ok(last)
-    } else {
-        Err(format!(
-            "failed to produce valid {word_count}-word name after {MAX_ATTEMPTS} attempts; last: {last}"
-        ))
-    }
+        if is_valid(&last, wc as usize) {
+            last
+        } else {
+            return Err(format!(
+                "failed to produce valid {wc}-word name after {MAX_ATTEMPTS} attempts; last: {last}"
+            ));
+        }
+    };
+
+    Ok(NameResult {
+        camel: pascal_to_camel(&pascal),
+        kebab: pascal_to_kebab(&pascal),
+        pascal,
+    })
 }

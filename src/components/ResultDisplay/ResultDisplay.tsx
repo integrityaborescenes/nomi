@@ -4,10 +4,14 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../store/store.ts";
 import { invoke } from "@tauri-apps/api/core";
 
+type NameResult = {
+  pascal: string;
+  camel: string;
+  kebab: string;
+};
+
 const ResultDisplay = () => {
-  const wordCount = useSelector(
-    (state: RootState) => state.parametersSlice.countOfWords,
-  );
+  const style = useSelector((state: RootState) => state.parametersSlice.style);
 
   const phrase = useSelector(
     (state: RootState) => state.parametersSlice.inputText,
@@ -17,14 +21,17 @@ const ResultDisplay = () => {
     (state: RootState) => state.parametersSlice.submitNonce,
   );
 
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<NameResult | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [errorGenerate, setErrorGenerate] = useState<boolean>(false);
   const [retry, setRetry] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadingText, setLoadingText] = useState<string>("");
 
-  const lastKeyRef = useRef<string>("");
+  const lastPhraseRef = useRef<string>("");
+
+  const display = result ? result[style] : null;
 
   const handleRetry = () => {
     if (loading) return;
@@ -35,9 +42,9 @@ const ResultDisplay = () => {
   };
 
   const handleCopy = async () => {
-    if (!result) return;
+    if (!display) return;
 
-    await navigator.clipboard.writeText(result);
+    await navigator.clipboard.writeText(display);
     setCopied(true);
     setTimeout(() => setCopied(false), 1000);
   };
@@ -45,18 +52,18 @@ const ResultDisplay = () => {
   useEffect(() => {
     if (!phrase) return;
 
-    const key = `${phrase}:${wordCount}`;
-    const sameKey = lastKeyRef.current === key;
-    lastKeyRef.current = key;
-    const previous = sameKey && result ? [result] : [];
+    const samePhrase = lastPhraseRef.current === phrase;
+    lastPhraseRef.current = phrase;
+    const previous = samePhrase && result ? [result.pascal] : [];
 
     (async () => {
       setLoading(true);
       setErrorGenerate(false);
       try {
-        const name = await invoke<string>("generate_name", {
+        const ready = await invoke<boolean>("is_model_ready");
+        setLoadingText(ready ? "" : "Загрузка модели");
+        const name = await invoke<NameResult>("generate_name", {
           phrase,
-          wordCount,
           previous,
         });
         setResult(name);
@@ -72,11 +79,12 @@ const ResultDisplay = () => {
   return (
     <div className={styles.resultDisplay}>
       {loading ? (
-        <span className={styles.loader} />
+        <div className={styles.loadingRow}>
+          <span className={styles.loader} />
+          <span className={styles.loadingText}>{loadingText}</span>
+        </div>
       ) : (
-        <p>
-          {errorGenerate ? "Не получилось :( попробуй ещё раз" : result}
-        </p>
+        <p>{errorGenerate ? "Не получилось :( попробуй ещё раз" : display}</p>
       )}
       <div className={styles.controls}>
         <button

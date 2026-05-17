@@ -1,6 +1,6 @@
 import Titlebar from "./components/Titlebar/Titlebar.tsx";
 import PhraseInput from "./components/PhraseInput/PhraseInput.tsx";
-import WordCountSelector from "./components/WordCountSelector/WordCountSelector.tsx";
+import StyleSelector from "./components/StyleSelector/StyleSelector.tsx";
 import ResultDisplay from "./components/ResultDisplay/ResultDisplay.tsx";
 
 function App() {
@@ -9,7 +9,7 @@ function App() {
       <Titlebar />
       <main>
         <PhraseInput />
-        <WordCountSelector />
+        <StyleSelector />
         <ResultDisplay />
       </main>
     </>

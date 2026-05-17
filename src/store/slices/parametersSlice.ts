@@ -1,13 +1,15 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
+export type NameStyle = "pascal" | "camel" | "kebab";
+
 type ParametersState = {
-  countOfWords: number;
+  style: NameStyle;
   inputText: string | null;
   submitNonce: number;
 };
 
 const initialState: ParametersState = {
-  countOfWords: 2,
+  style: "pascal",
   inputText: null,
   submitNonce: 0,
 };
@@ -16,8 +18,8 @@ export const parametersSlice = createSlice({
   name: "parameters",
   initialState,
   reducers: {
-    setCount: (state, action: PayloadAction<number>) => {
-      state.countOfWords = action.payload;
+    setStyle: (state, action: PayloadAction<NameStyle>) => {
+      state.style = action.payload;
     },
     setInputText: (state, action: PayloadAction<string | null>) => {
       state.inputText = action.payload;
@@ -29,5 +31,5 @@ export const parametersSlice = createSlice({
   },
 });
 
-export const { setCount, setInputText, bumpSubmit, clearParameters } = parametersSlice.actions;
+export const { setStyle, setInputText, bumpSubmit, clearParameters } = parametersSlice.actions;
 export default parametersSlice.reducer;
