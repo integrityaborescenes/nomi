@@ -54,6 +54,15 @@
   background: var(--bg-light-graphite);
 }
 
+.divider {
+  width: 1px;
+  height: 16px;
+  align-self: center;
+  background: var(--bg-light-graphite);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
 .close:hover {
   background: #C42B1C;
   color: var(--color-white);

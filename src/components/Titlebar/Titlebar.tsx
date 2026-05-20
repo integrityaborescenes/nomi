@@ -38,6 +38,7 @@ const Titlebar = () => {
             <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
           </svg>
         </button>
+        <span className={styles.divider} aria-hidden="true" />
         <button
           className={styles.minimize}
           onClick={() => win.minimize()}
