@@ -1,6 +1,6 @@
 [package]
 name = "nomi"
-version = "0.3.2"
+version = "0.4.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -31,4 +31,10 @@ candle-nn = "0.10"
 candle-transformers = "0.10"
 tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
 rand = "0.8"
+
+# Зависимости (включая candle и его матричную алгебру) собираются с -O3 даже в dev-mode.
+# Без этого candle компилится debug-сборкой, что в 5-20× медленнее на матричных операциях.
+# Сам код nomi остаётся debug — быстрая итерация при разработке.
+[profile.dev.package."*"]
+opt-level = 3
 
