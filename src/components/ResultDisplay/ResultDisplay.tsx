@@ -48,10 +48,8 @@ const ResultDisplay = () => {
 
     await navigator.clipboard.writeText(display);
     setCopied(true);
-    setTimeout(() => {
-      setCopied(false);
-      setTooltipSuppressed(true);
-    }, 1000);
+    setTooltipSuppressed(true);
+    setTimeout(() => setCopied(false), 1000);
   };
 
   useEffect(() => {
@@ -94,11 +92,13 @@ const ResultDisplay = () => {
           onMouseLeave={() => setTooltipSuppressed(false)}
           className={display ? styles.clickable : undefined}
           data-tooltip={
-            display && !tooltipSuppressed
-              ? copied
+            !display
+              ? undefined
+              : copied
                 ? "Скопировано"
-                : "Скопировать"
-              : undefined
+                : tooltipSuppressed
+                  ? undefined
+                  : "Скопировать"
           }
         >
           {errorGenerate ? "Не получилось :( попробуй ещё раз" : display}
