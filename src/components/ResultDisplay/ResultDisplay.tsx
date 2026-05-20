@@ -85,7 +85,13 @@ const ResultDisplay = () => {
           <span className={styles.loadingText}>{loadingText}</span>
         </div>
       ) : (
-        <p>{errorGenerate ? "Не получилось :( попробуй ещё раз" : display}</p>
+        <p
+          onClick={display ? handleCopy : undefined}
+          className={display ? styles.clickable : undefined}
+          title={display ? "Скопировать" : undefined}
+        >
+          {errorGenerate ? "Не получилось :( попробуй ещё раз" : display}
+        </p>
       )}
       <div className={styles.controls}>
         <button

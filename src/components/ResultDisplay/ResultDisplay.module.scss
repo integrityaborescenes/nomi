@@ -20,6 +20,19 @@
     letter-spacing: -0.13px;
   }
 
+  .clickable {
+    cursor: pointer;
+    transition: opacity 0.12s ease;
+
+    &:hover {
+      opacity: 0.7;
+    }
+
+    &:active {
+      opacity: 0.5;
+    }
+  }
+
   .loadingRow {
     display: flex;
     align-items: center;
