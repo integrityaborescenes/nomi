@@ -19,9 +19,13 @@
   }
 
   button {
+    width: 65px;
     position: relative;
     z-index: 1;
     flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: 0;
     background: none;
     cursor: pointer;
@@ -29,7 +33,7 @@
     font-family: var(--font-inter);
     font-size: 12px;
     font-weight: 500;
-    line-height: 12px;
+    line-height: 1;
     padding: 4px 13px;
     transition: color 0.18s ease;
 
