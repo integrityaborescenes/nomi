@@ -27,6 +27,7 @@
   height: 100%;
 }
 
+.pin,
 .minimize,
 .close {
   display: flex;
@@ -42,9 +43,15 @@
   padding: 0;
 }
 
+.pin:hover,
 .minimize:hover {
   background: var(--bg-light-graphite);
   color: var(--color-white);
+}
+
+.pinActive {
+  color: var(--color-white);
+  background: var(--bg-light-graphite);
 }
 
 .close:hover {
