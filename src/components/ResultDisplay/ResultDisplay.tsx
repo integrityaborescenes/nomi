@@ -25,6 +25,7 @@ const ResultDisplay = () => {
   const [result, setResult] = useState<NameResult | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [tooltipSuppressed, setTooltipSuppressed] = useState(false);
   const [errorGenerate, setErrorGenerate] = useState<boolean>(false);
   const [retry, setRetry] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -47,7 +48,10 @@ const ResultDisplay = () => {
 
     await navigator.clipboard.writeText(display);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1000);
+    setTimeout(() => {
+      setCopied(false);
+      setTooltipSuppressed(true);
+    }, 1000);
   };
 
   useEffect(() => {
@@ -87,8 +91,15 @@ const ResultDisplay = () => {
       ) : (
         <p
           onClick={display ? handleCopy : undefined}
+          onMouseLeave={() => setTooltipSuppressed(false)}
           className={display ? styles.clickable : undefined}
-          title={display ? "Скопировать" : undefined}
+          data-tooltip={
+            display && !tooltipSuppressed
+              ? copied
+                ? "Скопировано"
+                : "Скопировать"
+              : undefined
+          }
         >
           {errorGenerate ? "Не получилось :( попробуй ещё раз" : display}
         </p>
